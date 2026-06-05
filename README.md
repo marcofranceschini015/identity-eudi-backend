@@ -172,17 +172,10 @@ curl -i -X POST http://localhost:8080/api/session \
 ### `GET /api/session/{sessionId}` — poll the session state
 
 Asks the Lissi connector for the current state of an existing session.
-If the connector reports a state other than the initial `CREATED`, the
-persisted row is updated to match; the initial state never triggers a
-database write.
-
-Request body:
-
-```json
-{
-  "tenant": "check24-bank"
-}
-```
+The tenant is recovered from the persisted session row, so the caller only
+needs the session id — no request body, no query parameters. If the connector
+reports a state other than the initial `CREATED`, the persisted row is
+updated to match; the initial state never triggers a database write.
 
 Response (`200 OK`):
 
@@ -197,14 +190,8 @@ Possible values for `state`: `CREATED`, `ISSUED`, `FAILED`, `REVOKED`.
 Example:
 
 ```bash
-curl -i -X GET http://localhost:8080/api/session/47935416-de71-4711-91ea-c97dd1ab3d18 \
-  -H 'Content-Type: application/json' \
-  -d '{"tenant":"check24-bank"}'
+curl -i http://localhost:8080/api/session/47935416-de71-4711-91ea-c97dd1ab3d18
 ```
-
-> **Note on `GET` with a body.** Some HTTP clients and intermediaries strip the
-> body from `GET` requests. For a demo it's fine; if this ever needs to be
-> exposed publicly, move `tenant` to a query parameter or a header.
 
 ## Configuration
 

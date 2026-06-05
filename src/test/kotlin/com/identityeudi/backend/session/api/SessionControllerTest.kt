@@ -97,32 +97,14 @@ class SessionControllerTest {
 
     @Test
     fun `GET api session by id returns 200 with the current state`() {
-        val tenant = "check24-bank"
         val sessionId = UUID.fromString("47935416-de71-4711-91ea-c97dd1ab3d18")
-        every { sessionService.pollSession(tenant, sessionId) } returns SessionState.ISSUED
+        every { sessionService.pollSession(sessionId) } returns SessionState.ISSUED
 
-        mockMvc.perform(
-            get("/api/session/{sessionId}", sessionId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"tenant":"$tenant"}"""),
-        )
+        mockMvc.perform(get("/api/session/{sessionId}", sessionId))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.state").value("ISSUED"))
 
-        verify(exactly = 1) { sessionService.pollSession(tenant, sessionId) }
-    }
-
-    @Test
-    fun `GET api session by id returns 400 when tenant is blank`() {
-        val sessionId = UUID.randomUUID()
-
-        mockMvc.perform(
-            get("/api/session/{sessionId}", sessionId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""{"tenant":""}"""),
-        ).andExpect(status().isBadRequest)
-
-        verify(exactly = 0) { sessionService.pollSession(any(), any()) }
+        verify(exactly = 1) { sessionService.pollSession(sessionId) }
     }
 
     @Test

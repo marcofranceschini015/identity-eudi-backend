@@ -79,19 +79,7 @@ class SessionServiceTest {
     }
 
     @Test
-    fun `pollSession returns CREATED and never touches the repository when the state is unchanged`() {
-        every { lissiClient.getIssuanceSession(tenant, sessionId) } returns connectorResponse(state = "CREATED")
-
-        val state = service.pollSession(tenant, sessionId)
-
-        assertThat(state).isEqualTo(SessionState.CREATED)
-        verify(exactly = 0) { sessionRepository.findById(any()) }
-        verify(exactly = 0) { sessionRepository.save(any()) }
-    }
-
-    @Test
-    fun `pollSession updates the persisted session and returns the new state when it has moved on`() {
-        every { lissiClient.getIssuanceSession(tenant, sessionId) } returns connectorResponse(state = "ISSUED")
+    fun `pollSession loads the session to recover the tenant and skips the write when state is still CREATED`() {
         val persisted = Session(
             id = sessionId,
             state = SessionState.CREATED,
@@ -101,10 +89,32 @@ class SessionServiceTest {
             tenant = tenant,
         )
         every { sessionRepository.findById(sessionId) } returns persisted
+        every { lissiClient.getIssuanceSession(tenant, sessionId) } returns connectorResponse(state = "CREATED")
+
+        val state = service.pollSession(sessionId)
+
+        assertThat(state).isEqualTo(SessionState.CREATED)
+        verify(exactly = 1) { sessionRepository.findById(sessionId) }
+        verify(exactly = 1) { lissiClient.getIssuanceSession(tenant, sessionId) }
+        verify(exactly = 0) { sessionRepository.save(any()) }
+    }
+
+    @Test
+    fun `pollSession updates the persisted session and returns the new state when it has moved on`() {
+        val persisted = Session(
+            id = sessionId,
+            state = SessionState.CREATED,
+            credentialId = credentialId,
+            createdAt = createdAt,
+            expiresAt = expiresAt,
+            tenant = tenant,
+        )
+        every { sessionRepository.findById(sessionId) } returns persisted
+        every { lissiClient.getIssuanceSession(tenant, sessionId) } returns connectorResponse(state = "ISSUED")
         val savedSlot = slot<Session>()
         every { sessionRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
 
-        val state = service.pollSession(tenant, sessionId)
+        val state = service.pollSession(sessionId)
 
         assertThat(state).isEqualTo(SessionState.ISSUED)
         assertThat(savedSlot.captured).isEqualTo(persisted.copy(state = SessionState.ISSUED))
@@ -113,14 +123,14 @@ class SessionServiceTest {
     }
 
     @Test
-    fun `pollSession throws when the connector reports a new state but the session is not in the database`() {
-        every { lissiClient.getIssuanceSession(tenant, sessionId) } returns connectorResponse(state = "FAILED")
+    fun `pollSession throws and never calls the connector when the session is not in the database`() {
         every { sessionRepository.findById(sessionId) } returns null
 
-        assertThatThrownBy { service.pollSession(tenant, sessionId) }
+        assertThatThrownBy { service.pollSession(sessionId) }
             .isInstanceOf(IllegalStateException::class.java)
             .hasMessageContaining(sessionId.toString())
 
+        verify(exactly = 0) { lissiClient.getIssuanceSession(any(), any()) }
         verify(exactly = 0) { sessionRepository.save(any()) }
     }
 

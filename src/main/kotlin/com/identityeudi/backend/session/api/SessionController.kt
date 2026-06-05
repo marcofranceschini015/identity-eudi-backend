@@ -2,7 +2,6 @@ package com.identityeudi.backend.session.api
 
 import com.identityeudi.backend.session.api.dto.CreateSessionRequest
 import com.identityeudi.backend.session.api.dto.CreateSessionResponse
-import com.identityeudi.backend.session.api.dto.PollSessionRequest
 import com.identityeudi.backend.session.api.dto.PollSessionResponse
 import com.identityeudi.backend.session.service.SessionService
 import jakarta.validation.Valid
@@ -37,9 +36,8 @@ class SessionController(
     @GetMapping("/{sessionId}")
     fun pollSession(
         @PathVariable sessionId: UUID,
-        @Valid @RequestBody request: PollSessionRequest,
     ): PollSessionResponse {
-        val state = sessionService.pollSession(tenant = request.tenant, sessionId = sessionId)
+        val state = sessionService.pollSession(sessionId = sessionId)
         return PollSessionResponse(state = state)
     }
 }

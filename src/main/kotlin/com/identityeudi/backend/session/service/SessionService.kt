@@ -48,21 +48,24 @@ class SessionService(
     /**
      * Polls the connector for the current state of the session.
      *
-     * If the state has moved on from the initial [SessionState.CREATED]
-     * value, the persisted session is updated to match. The initial state
+     * The session row is loaded first so we can recover the tenant it
+     * originally belonged to; this lets the public API expose the session by
+     * id alone, without forcing the client to remember which tenant created
+     * it. If the state has moved on from the initial [SessionState.CREATED]
+     * value, the persisted session is updated to match; the initial state
      * never triggers a database write.
      *
      * @return the latest state reported by the connector
-     * @throws IllegalArgumentException if [tenant] is not configured
-     * @throws IllegalStateException    if the local session cannot be found
+     * @throws IllegalStateException if the local session cannot be found
      */
-    fun pollSession(tenant: String, sessionId: UUID): SessionState {
-        val response = lissiClient.getIssuanceSession(tenant, sessionId)
+    fun pollSession(sessionId: UUID): SessionState {
+        val existing = sessionRepository.findById(sessionId)
+            ?: throw IllegalStateException("Session not found: $sessionId")
+
+        val response = lissiClient.getIssuanceSession(existing.tenant, sessionId)
         val newState = SessionState.valueOf(response.state)
 
         if (newState != SessionState.CREATED) {
-            val existing = sessionRepository.findById(sessionId)
-                ?: throw IllegalStateException("Session not found: $sessionId")
             sessionRepository.save(existing.copy(state = newState))
         }
 
