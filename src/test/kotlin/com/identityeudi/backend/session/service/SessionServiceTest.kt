@@ -77,4 +77,62 @@ class SessionServiceTest {
 
         verify(exactly = 0) { sessionRepository.save(any()) }
     }
+
+    @Test
+    fun `pollSession returns CREATED and never touches the repository when the state is unchanged`() {
+        every { lissiClient.getIssuanceSession(tenant, sessionId) } returns connectorResponse(state = "CREATED")
+
+        val state = service.pollSession(tenant, sessionId)
+
+        assertThat(state).isEqualTo(SessionState.CREATED)
+        verify(exactly = 0) { sessionRepository.findById(any()) }
+        verify(exactly = 0) { sessionRepository.save(any()) }
+    }
+
+    @Test
+    fun `pollSession updates the persisted session and returns the new state when it has moved on`() {
+        every { lissiClient.getIssuanceSession(tenant, sessionId) } returns connectorResponse(state = "ISSUED")
+        val persisted = Session(
+            id = sessionId,
+            state = SessionState.CREATED,
+            credentialId = credentialId,
+            createdAt = createdAt,
+            expiresAt = expiresAt,
+            tenant = tenant,
+        )
+        every { sessionRepository.findById(sessionId) } returns persisted
+        val savedSlot = slot<Session>()
+        every { sessionRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
+
+        val state = service.pollSession(tenant, sessionId)
+
+        assertThat(state).isEqualTo(SessionState.ISSUED)
+        assertThat(savedSlot.captured).isEqualTo(persisted.copy(state = SessionState.ISSUED))
+        verify(exactly = 1) { sessionRepository.findById(sessionId) }
+        verify(exactly = 1) { sessionRepository.save(any()) }
+    }
+
+    @Test
+    fun `pollSession throws when the connector reports a new state but the session is not in the database`() {
+        every { lissiClient.getIssuanceSession(tenant, sessionId) } returns connectorResponse(state = "FAILED")
+        every { sessionRepository.findById(sessionId) } returns null
+
+        assertThatThrownBy { service.pollSession(tenant, sessionId) }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessageContaining(sessionId.toString())
+
+        verify(exactly = 0) { sessionRepository.save(any()) }
+    }
+
+    private fun connectorResponse(state: String) = IssuanceSessionResponse(
+        id = sessionId,
+        state = state,
+        createdAt = createdAt,
+        expiresAt = expiresAt,
+        issuance = IssuanceSessionResponse.Issuance(credentialId = credentialId),
+        credentialOfferDetails = IssuanceSessionResponse.CredentialOfferDetails(
+            credentialOfferUri = "openid-credential-offer://?credential_offer_uri=foo",
+            oneTimePassword = "1944",
+        ),
+    )
 }

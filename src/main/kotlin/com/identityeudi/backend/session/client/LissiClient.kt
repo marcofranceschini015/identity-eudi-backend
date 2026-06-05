@@ -40,8 +40,7 @@ class LissiClient(
         tenantName: String,
         subjectClaims: Map<String, String>,
     ): IssuanceSessionResponse {
-        val tenant = tenants.tenants.firstOrNull { it.name == tenantName }
-            ?: throw IllegalArgumentException("Unknown tenant: $tenantName")
+        val tenant = resolveTenant(tenantName)
 
         val now = OffsetDateTime.now(ZoneOffset.UTC)
         val request = IssuanceSessionRequest(
@@ -69,6 +68,34 @@ class LissiClient(
             .block()
             ?: throw IllegalStateException("Empty response from Lissi connector for tenant '$tenantName'")
     }
+
+    /**
+     * Retrieves the current state of an issuance session previously created
+     * via [createIssuanceSession]. Used to poll for progress.
+     *
+     * @throws IllegalArgumentException if [tenantName] is not configured
+     * @throws IllegalStateException    if the connector returns an empty body
+     */
+    fun getIssuanceSession(
+        tenantName: String,
+        sessionId: UUID,
+    ): IssuanceSessionResponse {
+        val tenant = resolveTenant(tenantName)
+        val baseUrl = lissiProperties.baseUrlTemplate.replace("{tenant}", tenantName)
+        return lissiWebClient
+            .get()
+            .uri("$baseUrl/api/v2/issuance-sessions/$sessionId")
+            .header(API_KEY_HEADER, tenant.apiKey)
+            .retrieve()
+            .bodyToMono<IssuanceSessionResponse>()
+            .timeout(LissiClientConfig.TIMEOUT)
+            .block()
+            ?: throw IllegalStateException("Empty response from Lissi connector for tenant '$tenantName'")
+    }
+
+    private fun resolveTenant(tenantName: String): TenantsProperties.Tenant =
+        tenants.tenants.firstOrNull { it.name == tenantName }
+            ?: throw IllegalArgumentException("Unknown tenant: $tenantName")
 
     companion object {
         private const val API_KEY_HEADER = "LC-Api-Key"

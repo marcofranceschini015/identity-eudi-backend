@@ -5,6 +5,7 @@ import com.identityeudi.backend.session.domain.Session
 import com.identityeudi.backend.session.domain.SessionRepository
 import com.identityeudi.backend.session.domain.SessionState
 import org.springframework.stereotype.Service
+import java.util.UUID
 
 /**
  * Application service for the session use cases.
@@ -42,5 +43,29 @@ class SessionService(
             redirectUrl = response.credentialOfferDetails.credentialOfferUri,
             oneTimePassword = response.credentialOfferDetails.oneTimePassword,
         )
+    }
+
+    /**
+     * Polls the connector for the current state of the session.
+     *
+     * If the state has moved on from the initial [SessionState.CREATED]
+     * value, the persisted session is updated to match. The initial state
+     * never triggers a database write.
+     *
+     * @return the latest state reported by the connector
+     * @throws IllegalArgumentException if [tenant] is not configured
+     * @throws IllegalStateException    if the local session cannot be found
+     */
+    fun pollSession(tenant: String, sessionId: UUID): SessionState {
+        val response = lissiClient.getIssuanceSession(tenant, sessionId)
+        val newState = SessionState.valueOf(response.state)
+
+        if (newState != SessionState.CREATED) {
+            val existing = sessionRepository.findById(sessionId)
+                ?: throw IllegalStateException("Session not found: $sessionId")
+            sessionRepository.save(existing.copy(state = newState))
+        }
+
+        return newState
     }
 }

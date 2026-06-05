@@ -99,6 +99,37 @@ class LissiClientTest {
     }
 
     @Test
+    fun `getIssuanceSession performs a GET with the API key and returns the parsed response`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody(SAMPLE_RESPONSE),
+        )
+        val sessionId = UUID.fromString("47935416-de71-4711-91ea-c97dd1ab3d18")
+
+        val response = client.getIssuanceSession(tenantName, sessionId)
+
+        assertThat(response.id).isEqualTo(sessionId)
+        assertThat(response.state).isEqualTo("CREATED")
+
+        val recorded = server.takeRequest()
+        assertThat(recorded.method).isEqualTo("GET")
+        assertThat(recorded.path).isEqualTo("/api/v2/issuance-sessions/$sessionId")
+        assertThat(recorded.getHeader("LC-Api-Key")).isEqualTo(apiKey)
+        assertThat(recorded.bodySize).isZero()
+    }
+
+    @Test
+    fun `getIssuanceSession throws when tenant is not configured`() {
+        assertThatThrownBy {
+            client.getIssuanceSession("unknown-tenant", UUID.randomUUID())
+        }
+            .isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("unknown-tenant")
+    }
+
+    @Test
     fun `createIssuanceSession propagates HTTP errors from the connector`() {
         server.enqueue(MockResponse().setResponseCode(401).setBody("unauthorized"))
 
