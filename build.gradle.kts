@@ -29,6 +29,8 @@ repositories {
     mavenCentral()
 }
 
+extra["testcontainers.version"] = "1.21.4"
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -48,8 +50,13 @@ dependencies {
     }
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("com.ninja-squad:springmockk:4.0.2")
+
+    // Integration testing against real Postgres via Testcontainers
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testRuntimeOnly("com.h2database:h2")
 }
 
 tasks.withType<Test> {
