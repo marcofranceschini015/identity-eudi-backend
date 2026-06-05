@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: identity-eudi-backend
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:eudi}
+    username: ${DB_USER:eudi}
+    password: ${DB_PASSWORD:eudi}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  tenants:
+    - name: check24-bank
+      apiKey: tzg9QzH0qzeOK9HoRibOgNb9GoxWHuFnzt-59NDw0LM
+      template: LoanCredential
