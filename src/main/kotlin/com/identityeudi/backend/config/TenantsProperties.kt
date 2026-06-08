@@ -16,5 +16,6 @@ data class TenantsProperties(
         val name: String,
         val apiKey: String,
         val template: String,
+        val presentation: String
     )
 }

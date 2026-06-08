@@ -31,6 +31,7 @@ app:
     - name: check24-bank
       apiKey: tzg9QzH0qzeOK9HoRibOgNb9GoxWHuFnzt-59NDw0LM
       template: LoanCredential
+      presentation: LoanPresentation
 
 lissi:
   base-url-template: https://{tenant}.demo.connector.lissi.io
